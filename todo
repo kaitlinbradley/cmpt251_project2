@@ -1,0 +1,174 @@
+#!/bin/bash
+
+#FUNCTIONS: 
+
+# moves an item from the to-do list to the completed list
+function mark_complete(){
+	dir_check "todo.completed"
+	after=1 #to determine if an item comes after the removed item
+	for f in $(ls todo.list/); do	
+		if [ $(($f)) == $1 ]
+		then
+			# retreive last number used in list, if no items exist, default is 0
+			last=0 
+			for completed in $(ls todo.completed/); do
+				last=$completed
+			done
+			filename="todo.completed/"$(($completed + 1))""
+			mv todo.list/"$f" $filename
+			chmod 700 $filename
+			after=0
+		elif [ $after == 0 ] #if after, renumber item
+		then
+			filename="todo.list/"$(($f - 1))""
+			mv todo.list/"$f" $filename
+			chmod 700 $filename
+		fi
+	done
+}
+
+# adds an item to the to-do list
+function new_item(){
+	dir_check "todo.list"
+	read -p "Enter task details: " d
+	#retrieve last number used in list, if no items exist, default is 0
+	last=0 
+        for f in $(ls todo.list/); do
+		last=$f
+	done
+		
+	filename="todo.list/"$(($last + 1))""
+	echo "$@
+----
+$d" > $filename
+	chmod 700 $filename
+}
+
+#returns list of uncompleted items
+function list_todo(){
+	dir_check "todo.list"
+	for f in $(ls todo.list/); do	
+		title=$(head -1 todo.list/$f)
+		echo "$f) $title"
+	done
+}
+
+#returns list of completed items
+function list_completed(){
+	dir_check "todo.completed"	
+	echo "Completed items:"
+	for f in $(ls todo.completed/); do
+		title=$(head -1 todo.completed/$f)
+		echo "$f) $title"
+	done
+}
+
+#check if directory exists, makes it if it doesnt
+function dir_check(){
+	if [ ! -d "$1" ]; 
+	then
+		mkdir "$1"
+	fi
+}
+
+#CASES FOR COMMAND ARGS
+case $1 in 
+help) 
+	echo -e "The following commands can be used:
+list: list all uncompleted items
+complete \e[4mnumber\e[0m: mark the item with the given number as complete
+list completed: list all completed items 
+add \e[4mtitle\e[0m: add new item with given title; whatever is sent to stdin is item details"
+;;
+
+list)
+	if [ "$2" == "completed" ]
+	then
+		list_completed
+	else
+		list_todo
+	fi
+;;
+
+complete)
+	mark_complete $2
+;;
+
+add)
+	new_item ${@:2}
+;;
+
+"")
+
+continue=0
+
+while [ $continue == 0 ]
+do
+
+#main menu
+echo "
+Welcome to to-do list manager! Here are your current items:"
+	list_todo
+echo "
+What would you like to do?
+1-3) See more information on this item
+A) Mark an item as completed
+B) Add a new item
+C) See completed items
+
+Q) Quit"
+
+
+
+read -p "Enter choice: " c
+
+# mark item as complete
+if [ $c == "A" ]
+then
+	read -p "Item to mark as complete:  " item
+	mark_complete $item
+
+# make new item
+elif [ $c == "B" ]
+then
+        read -p "Enter title: " t
+	new_item $t
+
+# see completed items
+elif [ $c == "C" ]
+then
+	list_completed	
+	read -p "Press enter to return to menu "
+
+# quit
+elif [ $c == 'Q' ] 
+then 
+	continue=1
+
+else 
+	valid=1
+	for f in $(ls todo.list/); do
+		if [ $f == $c ]
+		then 
+			cat todo.list/"$f"
+			valid=0
+		fi
+	done
+	if [ $valid == 1 ] # if prompt is not a filename
+	then 
+		echo "Error: invalid prompt"
+	fi
+
+	read -p "Press enter to return to menu "
+
+fi
+
+done
+
+;;
+
+*)
+	echo "Error: invalid argument"
+	bash todo help
+
+esac
